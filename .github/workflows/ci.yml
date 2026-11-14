@@ -30,10 +30,9 @@ jobs:
             macOS) brew install minio ;;
             Linux)
               sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev openssl
-              mkdir -p "$RUNNER_TEMP/bin"
-              curl -fsSL https://dl.min.io/server/minio/release/linux-amd64/minio -o "$RUNNER_TEMP/bin/minio"
-              chmod +x "$RUNNER_TEMP/bin/minio"
-              echo "MINIO_BIN=$RUNNER_TEMP/bin/minio" >> "$GITHUB_ENV" ;;
+              # dl.min.io no longer serves binaries (410); the runner's Homebrew has a bottle.
+              /home/linuxbrew/.linuxbrew/bin/brew install minio
+              echo "MINIO_BIN=/home/linuxbrew/.linuxbrew/bin/minio" >> "$GITHUB_ENV" ;;
           esac
       - name: Install goose
         run: |
