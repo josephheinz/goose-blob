@@ -1,0 +1,5 @@
+// libcurl (the S3 backend) and the disk side. macOS has libcurl and its headers in the SDK; Debian and Ubuntu need
+// libcurl4-openssl-dev (or another libcurl*-dev), Fedora libcurl-devel.
+c_sources = ["src/disk.c", "src/curl.c"];
+c_libs = ["curl"];
+exclude = ["test", "examples"];
