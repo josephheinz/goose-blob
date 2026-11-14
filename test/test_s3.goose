@@ -61,6 +61,11 @@ fn test_put_get() {
     out.clear();
     check("get binary", blob::get(s, "bin", out) && out == bin);
     out.clear();
+    check("get binary, explicit max", blob::get(s, "bin", out, 67108864) && out == bin);
+    out.clear();
+    check("get binary, max 100000", blob::get(s, "bin", out, 100000) && out == bin);
+    print("GET_MAX = ", blob::GET_MAX);
+    out.clear();
     check("get over max refused", !blob::get(s, "bin", out, 1000) && out.len == 0);
     var r: u8[>..] = [];
     check("range", blob::get_range(s, "bin", 100, 10, r) && r.len == 10 && r == bin[100..110]);
