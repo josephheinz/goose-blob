@@ -10,6 +10,7 @@ import sigv4;
 extern fn c_http(max_body: i64, method: const u8[:], url: const u8[:], headers: const u8[:], body: const u8[:], body_path: const u8[:],
                  out_path: const u8[:], out_body: u8[>..]&, out_headers: u8[>..]&, status: i64&,
                  ca_file: const u8[:]) -> i32 = "gblob_http";
+extern fn c_set_limit(n: i64) = "gblob_set_limit";
 extern fn c_cred_put(id: const u8[:], secret: const u8[:], token: const u8[:]) -> i64 = "gblob_cred_put";
 extern fn c_cred_get(h: i64, which: i32, out: u8[>..]&) = "gblob_cred_get";
 
@@ -214,7 +215,8 @@ fn _s3_call(limit: i64, s: const Store&, op: const u8[:], method: const u8[:], k
     var u: u8[>..] = [];
     u.append(s.scheme); u.append("://"); _authority(u, s); u.append(path);
     if query.len > 0 { u.push('?'); u.append(query); }
-    if c_http(limit, method, u, hs, body, body_path, out_path, out, heads, status, s.ca_file) == 0 {
+    c_set_limit(limit);
+    if c_http(0, method, u, hs, body, body_path, out_path, out, heads, status, s.ca_file) == 0 {
         var e: u8[>..] = [];
         c_error(e);
         return _fail(op, e);

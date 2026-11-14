@@ -35,6 +35,9 @@ static pthread_once_t init_once = PTHREAD_ONCE_INIT;
 static pthread_key_t handle_key;
 static int init_ok;
 static __thread CURL *tl_curl;
+static __thread int64_t tl_limit = -1;
+/* The response limit for this thread's next gblob_http when its own max_body argument is 0. */
+void gblob_set_limit(int64_t n) { tl_limit = n; }
 
 static void handle_destroy(void *p) { if (p) curl_easy_cleanup((CURL *)p); }
 static void global_init(void) {
@@ -159,7 +162,9 @@ int32_t gblob_http(int64_t max_body, gb_bytes method, gb_bytes url, gb_bytes hea
     char *m = dup_z(method), *u = dup_z(url), *ca = ca_file.len > 0 ? dup_z(ca_file) : NULL;
     struct curl_slist *hl = NULL;
     gb_req r = { 0 };
-    r.c = c; r.in_fd = -1; r.out_fd = -1; r.out = out_body; r.max = max_body; r.max_in = max_body;
+    r.c = c; r.in_fd = -1; r.out_fd = -1; r.out = out_body; if (max_body == 0 && tl_limit >= 0) max_body = tl_limit;
+    tl_limit = -1;
+    r.max = max_body; r.max_in = max_body;
     char tmp[GB_PATH], dst[GB_PATH];
     int ok = 0;
     if (!m || !u || (ca_file.len > 0 && !ca)) { gblob_set_error("out of memory", NULL); goto done; }
