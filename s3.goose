@@ -253,7 +253,12 @@ fn _s3_get(s: const Store&, key: const u8[:], off: i64, n: i64, max: i64, out: u
     var status = 0;
     var cap: i64 = _ERR_BODY_MAX;
     if max > cap { cap = max; }
-    if !_s3_call(s, "get", "GET", key, "", extra, "", "", "", cap, body, heads, status) { return false; }
+    if !_s3_call(s, "get", "GET", key, "", extra, "", "", "", cap, body, heads, status) {
+        var d: u8[>..] = [];
+        format(d, _err, " [max ", max, ", cap ", cap, "]");
+        _err.clear(); _err.append(d);
+        return false;
+    }
     if status == 416 && n > 0 { return _ok(); }                 // the range starts past the end
     if status != 200 && status != 206 { return _status_fail("get", key, status, body); }
     if body.len > max { return _fail("object larger than the limit", key); }
