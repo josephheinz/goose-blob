@@ -1,0 +1,2 @@
+# goose-blob, declared for the root. examples/run.sh sets GWEB_PKG_BLOB to this checkout instead.
+package blob josephheinz/goose-blob@v0.1.0
