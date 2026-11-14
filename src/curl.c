@@ -63,7 +63,7 @@ typedef struct {
     /* response */
     int to_file, out_fd;              /* to_file: a 2xx body goes to out_fd */
     gs_rref out;                      /* else the body is appended here */
-    int64_t max, got;
+    int64_t max, got, max_in, last_len;
     char *errbody; size_t errlen;     /* a non-2xx body when to_file */
     int too_big, write_failed;
     char *heads; size_t hlen, hcap;   /* the last header block */
@@ -110,6 +110,7 @@ static size_t write_cb(char *src, size_t size, size_t n, void *ud) {
         if (r->errbody && k) { memcpy(r->errbody + r->errlen, src, k); r->errlen += k; }
         return len;
     }
+    r->last_len = (int64_t)len;
     if (r->got + (int64_t)len > r->max) { r->too_big = 1; return 0; }
     gs_bld_append(r->out, src, len);
     r->got += (int64_t)len;
@@ -158,7 +159,7 @@ int32_t gblob_http(int64_t max_body, gb_bytes method, gb_bytes url, gb_bytes hea
     char *m = dup_z(method), *u = dup_z(url), *ca = ca_file.len > 0 ? dup_z(ca_file) : NULL;
     struct curl_slist *hl = NULL;
     gb_req r = { 0 };
-    r.c = c; r.in_fd = -1; r.out_fd = -1; r.out = out_body; r.max = max_body;
+    r.c = c; r.in_fd = -1; r.out_fd = -1; r.out = out_body; r.max = max_body; r.max_in = max_body;
     char tmp[GB_PATH], dst[GB_PATH];
     int ok = 0;
     if (!m || !u || (ca_file.len > 0 && !ca)) { gblob_set_error("out of memory", NULL); goto done; }
@@ -246,7 +247,7 @@ int32_t gblob_http(int64_t max_body, gb_bytes method, gb_bytes url, gb_bytes hea
     curl_easy_setopt(c, CURLOPT_ERRORBUFFER, NULL);
     long code = status_now(&r);
     if (rc != CURLE_OK) {
-        if (r.too_big) { char d[96]; snprintf(d, sizeof d, "status %ld, %lld bytes so far, limit %lld", code, (long long)r.got, (long long)r.max); gblob_set_error("response larger than the limit", d); }
+        if (r.too_big) { char d[96]; snprintf(d, sizeof d, "status %ld, %lld bytes so far, limit %lld (given %lld, chunk %lld)", code, (long long)r.got, (long long)r.max, (long long)r.max_in, (long long)r.last_len); gblob_set_error("response larger than the limit", d); }
         else if (r.write_failed) gblob_set_error("write", strerror(errno));
         else gblob_set_error(curl_easy_strerror(rc), ebuf);
         goto done;
