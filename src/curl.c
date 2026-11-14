@@ -36,6 +36,7 @@ static pthread_key_t handle_key;
 static int init_ok;
 static __thread CURL *tl_curl;
 static __thread int64_t tl_limit = -1;
+static int64_t g_calls;
 /* The response limit for this thread's next gblob_http when its own max_body argument is 0. */
 void gblob_set_limit(int64_t n) { tl_limit = n; }
 
@@ -156,6 +157,7 @@ int32_t gblob_http(int64_t max_body, gb_bytes method, gb_bytes url, gb_bytes hea
                    gb_bytes out_path, gs_rref out_body, gs_rref out_headers, int64_t *status,
                    gb_bytes ca_file) {
     gblob_clear_error();
+    g_calls++;
     *status = 0;
     CURL *c = handle();
     if (!c) { gblob_set_error("libcurl did not start", NULL); return 0; }
@@ -252,7 +254,7 @@ int32_t gblob_http(int64_t max_body, gb_bytes method, gb_bytes url, gb_bytes hea
     curl_easy_setopt(c, CURLOPT_ERRORBUFFER, NULL);
     long code = status_now(&r);
     if (rc != CURLE_OK) {
-        if (r.too_big) { char d[96]; snprintf(d, sizeof d, "status %ld, %lld bytes so far, limit %lld (given %lld, chunk %lld)", code, (long long)r.got, (long long)r.max, (long long)r.max_in, (long long)r.last_len); gblob_set_error("response larger than the limit", d); }
+        if (r.too_big) { char d[400]; snprintf(d, sizeof d, "call %lld %s %.200s status %ld, %lld bytes so far, limit %lld (given %lld, chunk %lld)", (long long)g_calls, m, u, code, (long long)r.got, (long long)r.max, (long long)r.max_in, (long long)r.last_len); gblob_set_error("response larger than the limit", d); }
         else if (r.write_failed) gblob_set_error("write", strerror(errno));
         else gblob_set_error(curl_easy_strerror(rc), ebuf);
         goto done;
