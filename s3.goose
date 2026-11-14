@@ -201,8 +201,8 @@ fn _status_fail(op: const u8[:], key: const u8[:], status: i64, body: const u8[:
 }
 
 // One signed request. The payload hash is UNSIGNED-PAYLOAD for a file body, else the SHA-256 of body.
-fn _s3_call(s: const Store&, op: const u8[:], method: const u8[:], key: const u8[:], query: const u8[:],
-            extra: const u8[:], body: const u8[:], body_path: const u8[:], out_path: const u8[:], limit: i64,
+fn _s3_call(limit: i64, s: const Store&, op: const u8[:], method: const u8[:], key: const u8[:], query: const u8[:],
+            extra: const u8[:], body: const u8[:], body_path: const u8[:], out_path: const u8[:],
             out: u8[>..]&, heads: u8[>..]&, status: i64&) -> bool {
     var path: u8[>..] = [];
     _uri_path(path, s, key);
@@ -240,7 +240,7 @@ fn _s3_put(s: const Store&, key: const u8[:], path: const u8[:], data: const u8[
     var body: u8[>..] = [];
     var heads: u8[>..] = [];
     var status = 0;
-    if !_s3_call(s, "put", "PUT", key, "", extra, data, if from_file { path } else { "" }, "", _ERR_BODY_MAX, body, heads, status) { return false; }
+    if !_s3_call(_ERR_BODY_MAX, s, "put", "PUT", key, "", extra, data, if from_file { path } else { "" }, "", body, heads, status) { return false; }
     if status != 200 { return _status_fail("put", key, status, body); }
     return _ok();
 }
@@ -253,7 +253,7 @@ fn _s3_get(s: const Store&, key: const u8[:], off: i64, n: i64, max: i64, out: u
     var status = 0;
     var cap: i64 = _ERR_BODY_MAX;
     if max > cap { cap = max; }
-    if !_s3_call(s, "get", "GET", key, "", extra, "", "", "", cap, body, heads, status) {
+    if !_s3_call(cap, s, "get", "GET", key, "", extra, "", "", "", body, heads, status) {
         var d: u8[>..] = [];
         format(d, _err, " [max ", max, ", cap ", cap, "]");
         _err.clear(); _err.append(d);
@@ -270,7 +270,7 @@ fn _s3_get_file(s: const Store&, key: const u8[:], path: const u8[:]) -> bool {
     var body: u8[>..] = [];
     var heads: u8[>..] = [];
     var status = 0;
-    if !_s3_call(s, "get_to_file", "GET", key, "", "", "", "", path, _ERR_BODY_MAX, body, heads, status) { return false; }
+    if !_s3_call(_ERR_BODY_MAX, s, "get_to_file", "GET", key, "", "", "", "", path, body, heads, status) { return false; }
     if status != 200 { return _status_fail("get_to_file", key, status, body); }
     return _ok();
 }
@@ -279,7 +279,7 @@ fn _s3_head(s: const Store&, key: const u8[:], info: Info&) -> bool {
     var body: u8[>..] = [];
     var heads: u8[>..] = [];
     var status = 0;
-    if !_s3_call(s, "head", "HEAD", key, "", "", "", "", "", _ERR_BODY_MAX, body, heads, status) { return false; }
+    if !_s3_call(_ERR_BODY_MAX, s, "head", "HEAD", key, "", "", "", "", "", body, heads, status) { return false; }
     if status == 404 { return _fail_missing(key); }
     if status != 200 { return _status_fail("head", key, status, body); }
     let len, _ = _rhead(heads, "content-length");
@@ -299,7 +299,7 @@ fn _s3_delete(s: const Store&, key: const u8[:]) -> bool {
     var body: u8[>..] = [];
     var heads: u8[>..] = [];
     var status = 0;
-    if !_s3_call(s, "delete", "DELETE", key, "", "", "", "", "", _ERR_BODY_MAX, body, heads, status) { return false; }
+    if !_s3_call(_ERR_BODY_MAX, s, "delete", "DELETE", key, "", "", "", "", "", body, heads, status) { return false; }
     if status != 204 && status != 200 && status != 404 { return _status_fail("delete", key, status, body); }
     return _ok();
 }
@@ -321,7 +321,7 @@ fn _s3_list(s: const Store&, prefix: const u8[:], after: const u8[:], out: Entry
         var body: u8[>..] = [];
         var heads: u8[>..] = [];
         var status = 0;
-        if !_s3_call(s, "list", "GET", "", q, "", "", "", "", _LIST_MAX, body, heads, status) { return false; }
+        if !_s3_call(_LIST_MAX, s, "list", "GET", "", q, "", "", "", "", body, heads, status) { return false; }
         if status != 200 { return _status_fail("list", prefix, status, body); }
         var rest: const u8[:] = body;
         var seen = 0;
