@@ -202,7 +202,7 @@ fn _status_fail(op: const u8[:], key: const u8[:], status: i64, body: const u8[:
 
 // One signed request. The payload hash is UNSIGNED-PAYLOAD for a file body, else the SHA-256 of body.
 fn _s3_call(s: const Store&, op: const u8[:], method: const u8[:], key: const u8[:], query: const u8[:],
-            extra: const u8[:], body: const u8[:], body_path: const u8[:], out_path: const u8[:], max: i64,
+            extra: const u8[:], body: const u8[:], body_path: const u8[:], out_path: const u8[:], limit: i64,
             out: u8[>..]&, heads: u8[>..]&, status: i64&) -> bool {
     var path: u8[>..] = [];
     _uri_path(path, s, key);
@@ -214,7 +214,7 @@ fn _s3_call(s: const Store&, op: const u8[:], method: const u8[:], key: const u8
     var u: u8[>..] = [];
     u.append(s.scheme); u.append("://"); _authority(u, s); u.append(path);
     if query.len > 0 { u.push('?'); u.append(query); }
-    if c_http(max, method, u, hs, body, body_path, out_path, out, heads, status, s.ca_file) == 0 {
+    if c_http(limit, method, u, hs, body, body_path, out_path, out, heads, status, s.ca_file) == 0 {
         var e: u8[>..] = [];
         c_error(e);
         return _fail(op, e);
