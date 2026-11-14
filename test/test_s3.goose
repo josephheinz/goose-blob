@@ -40,7 +40,7 @@ fn fetch(method: const u8[:], u: const u8[:], headers: const u8[:], body: const 
     var status = 0;
     var ca: u8[>..] = [];
     env("BLOB_CA_FILE", ca);
-    if blob::c_http(method, u, headers, body, "", "", 1 << 26, out, heads, status, ca) == 0 { return -1; }
+    if blob::c_http(1 << 26, method, u, headers, body, "", "", out, heads, status, ca) == 0 { return -1; }
     return status;
 }
 

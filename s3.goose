@@ -6,8 +6,9 @@ import std;
 import os;
 import sigv4;
 
-extern fn c_http(method: const u8[:], url: const u8[:], headers: const u8[:], body: const u8[:], body_path: const u8[:],
-                 out_path: const u8[:], max_body: i64, out_body: u8[>..]&, out_headers: u8[>..]&, status: i64&,
+// max_body comes first: as the 7th argument, after six slices, x86-64 Linux delivered a wrong value.
+extern fn c_http(max_body: i64, method: const u8[:], url: const u8[:], headers: const u8[:], body: const u8[:], body_path: const u8[:],
+                 out_path: const u8[:], out_body: u8[>..]&, out_headers: u8[>..]&, status: i64&,
                  ca_file: const u8[:]) -> i32 = "gblob_http";
 extern fn c_cred_put(id: const u8[:], secret: const u8[:], token: const u8[:]) -> i64 = "gblob_cred_put";
 extern fn c_cred_get(h: i64, which: i32, out: u8[>..]&) = "gblob_cred_get";
@@ -213,7 +214,7 @@ fn _s3_call(s: const Store&, op: const u8[:], method: const u8[:], key: const u8
     var u: u8[>..] = [];
     u.append(s.scheme); u.append("://"); _authority(u, s); u.append(path);
     if query.len > 0 { u.push('?'); u.append(query); }
-    if c_http(method, u, hs, body, body_path, out_path, max, out, heads, status, s.ca_file) == 0 {
+    if c_http(max, method, u, hs, body, body_path, out_path, out, heads, status, s.ca_file) == 0 {
         var e: u8[>..] = [];
         c_error(e);
         return _fail(op, e);

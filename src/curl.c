@@ -148,8 +148,8 @@ static char *dup_z(gb_bytes b) {
    out_body, and more than max_body bytes fail the call. Response header lines (the last block) are appended to
    out_headers. ca_file, when set, replaces the CA bundle; verification stays on.
    Returns 1 when a response came (any status, in *status), 0 for a transport error (gblob_error says why). */
-int32_t gblob_http(gb_bytes method, gb_bytes url, gb_bytes headers, gb_bytes body, gb_bytes body_path,
-                   gb_bytes out_path, int64_t max_body, gs_rref out_body, gs_rref out_headers, int64_t *status,
+int32_t gblob_http(int64_t max_body, gb_bytes method, gb_bytes url, gb_bytes headers, gb_bytes body, gb_bytes body_path,
+                   gb_bytes out_path, gs_rref out_body, gs_rref out_headers, int64_t *status,
                    gb_bytes ca_file) {
     gblob_clear_error();
     *status = 0;
