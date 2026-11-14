@@ -28,3 +28,9 @@ and needs no hand edit of `.gweb/main.goose`. goose-blob imports `gweb.auth.cryp
    > [goose-blob README](https://github.com/josephheinz/goose-blob).
 
 Not asked: an HTTPS client in goose-net (libcurl in goose-blob covers it, CMS-DESIGN D13), and a second SHA-256.
+
+## Goose compiler issue seen on x86-64 Linux (not gweb's)
+
+In `s3.goose`, an `i64` limit passed from `_s3_get` through `_s3_call` (13 parameters, slices and refs) reached C as
+65536 (the value other call sites pass) instead of the caller's value, whatever its position. macOS arm64 was right.
+The library now sets the limit with `c_set_limit` right before each request. Worth a minimal repro for Goose.

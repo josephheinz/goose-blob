@@ -6,7 +6,8 @@ import std;
 import os;
 import sigv4;
 
-// max_body comes first: as the 7th argument, after six slices, x86-64 Linux delivered a wrong value.
+// The response limit is set by c_set_limit right before each call (max_body 0). Passing it through _s3_call as an
+// i64 parameter arrived as a different value on x86-64 Linux (goose 2026.4); see NOTES-FOR-GWEB.md.
 extern fn c_http(max_body: i64, method: const u8[:], url: const u8[:], headers: const u8[:], body: const u8[:], body_path: const u8[:],
                  out_path: const u8[:], out_body: u8[>..]&, out_headers: u8[>..]&, status: i64&,
                  ca_file: const u8[:]) -> i32 = "gblob_http";
@@ -256,12 +257,7 @@ fn _s3_get(s: const Store&, key: const u8[:], off: i64, n: i64, max: i64, out: u
     var cap: i64 = _ERR_BODY_MAX;
     if max > cap { cap = max; }
     c_set_limit(cap);
-    if !_s3_call(s, "get", "GET", key, "", extra, "", "", "", body, heads, status) {
-        var d: u8[>..] = [];
-        format(d, _err, " [max ", max, ", cap ", cap, "]");
-        _err.clear(); _err.append(d);
-        return false;
-    }
+    if !_s3_call(s, "get", "GET", key, "", extra, "", "", "", body, heads, status) { return false; }
     if status == 416 && n > 0 { return _ok(); }                 // the range starts past the end
     if status != 200 && status != 206 { return _status_fail("get", key, status, body); }
     if body.len > max { return _fail("object larger than the limit", key); }
