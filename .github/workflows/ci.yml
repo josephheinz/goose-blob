@@ -1,0 +1,97 @@
+# Tests goose-blob on every push and pull request: SigV4 vectors, the disk backend, and S3 end to end against a
+# throwaway MinIO that test/run.sh starts itself (no service container). A v* tag also publishes a GitHub release
+# from CHANGELOG.md.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+env:
+  GOOSE_VERSION: v2026.4
+  GWEB_TAG: v1.1.0
+  NET_TAG: v1.1.0
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: libcurl and MinIO
+        run: |
+          case "$RUNNER_OS" in
+            macOS) brew install minio ;;
+            Linux)
+              sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev openssl
+              mkdir -p "$RUNNER_TEMP/bin"
+              curl -fsSL https://dl.min.io/server/minio/release/linux-amd64/minio -o "$RUNNER_TEMP/bin/minio"
+              chmod +x "$RUNNER_TEMP/bin/minio"
+              echo "MINIO_BIN=$RUNNER_TEMP/bin/minio" >> "$GITHUB_ENV" ;;
+          esac
+      - name: Install goose
+        run: |
+          case "$RUNNER_OS" in
+            macOS) asset=goose-$GOOSE_VERSION-macos-arm64.tar.gz ;;
+            Linux) asset=goose-$GOOSE_VERSION-linux-x64.tar.gz ;;
+          esac
+          mkdir -p "$RUNNER_TEMP/goose"
+          curl -fsSL "https://github.com/aardappel/goose/releases/download/$GOOSE_VERSION/$asset" | tar -xz -C "$RUNNER_TEMP/goose"
+          dirname "$(find "$RUNNER_TEMP/goose" -type f -name goose | head -n 1)" >> "$GITHUB_PATH"
+      # The library needs gweb (SHA-256, HMAC, content types) and so goose-net; the tests read them from beside the repo.
+      - name: gweb and goose-net
+        run: |
+          git clone --depth 1 --branch "$GWEB_TAG" https://github.com/josephheinz/gweb "$GITHUB_WORKSPACE/../goose-web"
+          git clone --depth 1 --branch "$NET_TAG" https://github.com/josephheinz/goose-net "$GITHUB_WORKSPACE/../goose-net"
+      - name: Tests
+        run: test/run.sh
+
+  # The gweb example builds against gweb and goose-net checkouts of the tag the package is made for.
+  example:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Packages
+        run: |
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends libcurl4-openssl-dev openssl
+          mkdir -p "$RUNNER_TEMP/bin"
+          curl -fsSL https://dl.min.io/server/minio/release/linux-amd64/minio -o "$RUNNER_TEMP/bin/minio"
+          chmod +x "$RUNNER_TEMP/bin/minio"
+          echo "MINIO_BIN=$RUNNER_TEMP/bin/minio" >> "$GITHUB_ENV"
+      - name: Install goose
+        run: |
+          mkdir -p "$RUNNER_TEMP/goose"
+          curl -fsSL "https://github.com/aardappel/goose/releases/download/$GOOSE_VERSION/goose-$GOOSE_VERSION-linux-x64.tar.gz" | tar -xz -C "$RUNNER_TEMP/goose"
+          dirname "$(find "$RUNNER_TEMP/goose" -type f -name goose | head -n 1)" >> "$GITHUB_PATH"
+      - name: gweb and goose-net
+        run: |
+          git clone --depth 1 --branch "$GWEB_TAG" https://github.com/josephheinz/gweb "$RUNNER_TEMP/goose-web"
+          git clone --depth 1 --branch "$NET_TAG" https://github.com/josephheinz/goose-net "$RUNNER_TEMP/goose-net"
+      - name: Example
+        env:
+          EXAMPLE_WEB: ${{ runner.temp }}/goose-web
+          EXAMPLE_NET: ${{ runner.temp }}/goose-net
+        run: examples/run.sh
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, example]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          awk -v h="## $GITHUB_REF_NAME" '$0 == h { on = 1; next } on && /^## / { exit } on { print }' CHANGELOG.md > notes.md
+          [ -s notes.md ] || { echo "CHANGELOG.md has no section for $GITHUB_REF_NAME" >&2; exit 1; }
+          gh release create "$GITHUB_REF_NAME" --title "goose-blob $GITHUB_REF_NAME" --notes-file notes.md --verify-tag
