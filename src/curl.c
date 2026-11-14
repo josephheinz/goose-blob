@@ -246,7 +246,7 @@ int32_t gblob_http(gb_bytes method, gb_bytes url, gb_bytes headers, gb_bytes bod
     curl_easy_setopt(c, CURLOPT_ERRORBUFFER, NULL);
     long code = status_now(&r);
     if (rc != CURLE_OK) {
-        if (r.too_big) gblob_set_error("response larger than the limit", NULL);
+        if (r.too_big) { char d[96]; snprintf(d, sizeof d, "status %ld, %lld bytes so far, limit %lld", code, (long long)r.got, (long long)r.max); gblob_set_error("response larger than the limit", d); }
         else if (r.write_failed) gblob_set_error("write", strerror(errno));
         else gblob_set_error(curl_easy_strerror(rc), ebuf);
         goto done;
